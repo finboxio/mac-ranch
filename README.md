@@ -90,9 +90,9 @@ I've got that in my bash profile, which lets me bring up a cluster using my loca
 
 #### Setup dns and reverse proxy containers
 
-With my system configured to use 127.0.0.1 as a DNS server, running [finboxio/docker-dns](https://github.com/finboxio/docker-dns) via Docker for Mac alongside [jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy) lets me access this rancher server in my browser at [http://rancher.docker.local]().
+With my system configured to use 127.0.0.1 as a DNS server, running [finboxio/docker-dns](https://github.com/finboxio/docker-dns) via Docker for Mac alongside [jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy) lets me access this rancher server in my browser at [http://rancher.docker.dev]().
 
-Additionally running [finboxio/rancher-lb](https://github.com/finboxio/rancher-lb) as a global service (technically it only needs to be on dm-host-1) allows me to access my rancher services at `<service-name>.rancher.local`. Here's a basic configuration, running as a stack named `lb`:
+Additionally running [finboxio/rancher-lb](https://github.com/finboxio/rancher-lb) as a global service (technically it only needs to be on dm-host-1) allows me to access my rancher services at `<service-name>.rancher.dev`. Here's a basic configuration, running as a stack named `lb`:
 
 lb/docker-compose.yml
 
@@ -129,7 +129,7 @@ haproxy:
     - http://rancher.dev
 ```
 
-With this configuration, you can expose any of your container ports as <service-name>.rancher.local just by adding the label `lb.haproxy.<port>.frontend=80/http` to your service (and adding a healthcheck to your service, as only healthy containers will be active). See the [rancher-lb](https://github.com/finboxio/rancher-lb) repo for a discussion of these and other available configuration options.
+With this configuration, you can expose any of your container ports as <service-name>.rancher.dev just by adding the label `lb.haproxy.<port>.frontend=80/http` to your service (and adding a healthcheck to your service, as only healthy containers will be active). See the [rancher-lb](https://github.com/finboxio/rancher-lb) repo for a discussion of these and other available configuration options.
 
 # License
 Copyright (c) 2014-2016 [Rancher Labs, Inc.](http://rancher.com)
