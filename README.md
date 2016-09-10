@@ -126,7 +126,7 @@ haproxy:
     - maxconn 4096
     - debug
     domains:
-    - http://rancher.local
+    - http://rancher.dev
 ```
 
 With this configuration, you can expose any of your container ports as <service-name>.rancher.local just by adding the label `lb.haproxy.<port>.frontend=80/http` to your service (and adding a healthcheck to your service, as only healthy containers will be active). See the [rancher-lb](https://github.com/finboxio/rancher-lb) repo for a discussion of these and other available configuration options.
