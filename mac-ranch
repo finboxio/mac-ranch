@@ -179,7 +179,7 @@ build_master()
                 -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_mysql_url $MYSQL_URL db) \
                 -e CATTLE_DB_CATTLE_USERNAME=$(parse_mysql_url $MYSQL_URL user) \
                 -e CATTLE_DB_CATTLE_PASSWORD=$(parse_mysql_url $MYSQL_URL pass) \
-                -e VIRTUAL_HOST=rancher.docker.dev \
+                -e VIRTUAL_HOST=rancher.docker \
                 -e VIRTUAL_PORT=8080"
     fi
 

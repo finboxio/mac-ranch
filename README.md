@@ -57,7 +57,7 @@ mac-ranch Usage:
 ### Add more hosts (server must already be running)
 
 ```
-./mac-ranch -n <number of hosts> 
+./mac-ranch -n <number of hosts>
 ```
 
 ### List all the hosts
@@ -84,15 +84,15 @@ By default, every VM you're running the agent on will have to pull all of its im
 
 #### Add an alias
 ```
-alias mr='~/Dev/github/mac-ranch/mac-ranch -u http://10.0.2.2:45000 -m mysql://rancher-mysql' 
+alias mr='~/Dev/github/mac-ranch/mac-ranch -u http://10.0.2.2:45000 -m mysql://rancher-mysql'
 ```
 I've got that in my bash profile, which lets me bring up a cluster using my local mysql and registry with a simple `mr -c`, add a host with `mr -n 1`, and tear it down with `mr -d`
 
 #### Setup dns and reverse proxy containers
 
-With my system configured to use 127.0.0.1 as a DNS server, running [finboxio/docker-dns](https://github.com/finboxio/docker-dns) via Docker for Mac alongside [jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy) lets me access this rancher server in my browser at [http://rancher.docker.dev]().
+With my system configured to use 127.0.0.1 as a DNS server, running [finboxio/docker-dns](https://github.com/finboxio/docker-dns) via Docker for Mac alongside [jwilder/nginx-proxy](https://github.com/jwilder/nginx-proxy) lets me access this rancher server in my browser at [http://rancher.docker]().
 
-Additionally running [finboxio/rancher-lb](https://github.com/finboxio/rancher-lb) as a global service (technically it only needs to be on dm-host-1) allows me to access my rancher services at `<service-name>.rancher.dev`. Here's a basic configuration, running as a stack named `lb`:
+Additionally running [finboxio/rancher-lb](https://github.com/finboxio/rancher-lb) as a global service (technically it only needs to be on dm-host-1) allows me to access my rancher services at `<service-name>.rancher`. Here's a basic configuration, running as a stack named `lb`:
 
 lb/docker-compose.yml
 
@@ -126,10 +126,10 @@ haproxy:
     - maxconn 4096
     - debug
     domains:
-    - http://rancher.dev
+    - http://rancher
 ```
 
-With this configuration, you can expose any of your container ports as <service-name>.rancher.dev just by adding the label `lb.haproxy.<port>.frontend=80/http` to your service (and adding a healthcheck to your service, as only healthy containers will be active). See the [rancher-lb](https://github.com/finboxio/rancher-lb) repo for a discussion of these and other available configuration options.
+With this configuration, you can expose any of your container ports as <service-name>.rancher just by adding the label `lb.haproxy.<port>.frontend=80/http` to your service (and adding a healthcheck to your service, as only healthy containers will be active). See the [rancher-lb](https://github.com/finboxio/rancher-lb) repo for a discussion of these and other available configuration options.
 
 # License
 Copyright (c) 2014-2016 [Rancher Labs, Inc.](http://rancher.com)
