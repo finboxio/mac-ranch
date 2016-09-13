@@ -22,6 +22,7 @@ mac-ranch Usage:
     -s - Server Container (default: rancher/server:latest)
     -u - Registry mirror URL (default: none)
     -m - External mysql url (format mysql://user:pass@host:port/db)
+    -w - Run server in specific docker network (default: default)
 EOF
 }
 
@@ -33,8 +34,9 @@ INSTANCE_COUNT=3
 NODE_MACHINE_SIZE="512"
 NODE_PREFIX="dm-host-"
 MIRROR_URL=""
+SERVER_NETWORK="default"
 
-while getopts ":a:b:cdhlM:m:n:prs:u:" opt;do
+while getopts ":a:b:cdhlM:m:n:prs:u:w:" opt;do
     case $opt in
     a)
         AGENT_CONTAINER="${OPTARG}"
@@ -63,15 +65,16 @@ while getopts ":a:b:cdhlM:m:n:prs:u:" opt;do
         ;;
     n)
         INSTANCE_COUNT=${OPTARG}
-        ;;
-    r)
-        REGISTRATION_URL="${OPTARG:-true}"
+        REGISTRATION_URL="true"
         ;;
     s)
         SERVER_CONTAINER="${OPTARG}"
         ;;
     u)
         MIRROR_URL="${OPTARG}"
+        ;;
+    w)
+        SERVER_NETWORK="${OPTARG}"
         ;;
     \?)
         echo "Invalid arguemnts" >&2
@@ -168,13 +171,13 @@ build_master()
         agent="-e CATTLE_BOOTSTRAP_REQUIRED_IMAGE=${AGENT_CONTAINER}"
     fi
 
-    mysql=""
+    docker_opts=""
     if [[ ! -z "$MYSQL_URL" ]]; then
         mysql_host=$(parse_mysql_url $MYSQL_URL host)
         if docker inspect $mysql_host &> /dev/null; then
-            mysql="--link $mysql_host:$mysql_host "
+            docker_opts="--link $mysql_host:$mysql_host "
         fi
-        mysql="$mysql -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_mysql_url $MYSQL_URL host) \
+        docker_opts="$docker_opts -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_mysql_url $MYSQL_URL host) \
                 -e CATTLE_DB_CATTLE_MYSQL_PORT=$(parse_mysql_url $MYSQL_URL port) \
                 -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_mysql_url $MYSQL_URL db) \
                 -e CATTLE_DB_CATTLE_USERNAME=$(parse_mysql_url $MYSQL_URL user) \
@@ -183,7 +186,7 @@ build_master()
                 -e VIRTUAL_PORT=8080"
     fi
 
-    docker run -d --restart=always -p 8080:8080 --name=mac-ranch -e DEFAULT_CATTLE_API_HOST="$(get_master_ip):8080" $agent $mysql ${SERVER_CONTAINER}
+    docker run -d --restart=always --network $SERVER_NETWORK -p 8080:8080 --name=mac-ranch -e DEFAULT_CATTLE_API_HOST="$(get_master_ip):8080" $agent $docker_opts ${SERVER_CONTAINER}
 }
 
 build_compute()
