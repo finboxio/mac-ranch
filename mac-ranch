@@ -212,7 +212,7 @@ build_compute()
 
 build_cluster()
 {
-    if [ -z "${REGISTRATION_URL}" ]; then
+    if ! docker inspect mac-ranch; then
         build_master
         echo -n "Waiting for server to start "
         while sleep 5; do
