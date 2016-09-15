@@ -36,7 +36,7 @@ NODE_PREFIX="dm-host-"
 MIRROR_URL=""
 SERVER_NETWORK="default"
 
-while getopts ":a:b:cdhlM:m:n:prs:u:w:" opt;do
+while getopts ":a:b:cdg:hlM:m:n:prs:u:w:" opt;do
     case $opt in
     a)
         AGENT_CONTAINER="${OPTARG}"
@@ -49,6 +49,9 @@ while getopts ":a:b:cdhlM:m:n:prs:u:w:" opt;do
         ;;
     d)
         DELETE_NODES_FLAG="true"
+        ;;
+    g)
+        GRAPHITE_URL="${OPTARG}"
         ;;
     h)
         print_help
@@ -121,7 +124,7 @@ get_master_ip()
     echo "10.0.2.2"
 }
 
-parse_mysql_url()
+parse_url()
 {
   proto="$(echo ${1} | grep :// | sed -e's,^\(.*://\).*,\1,g')"
   url="$(echo ${1##$proto})"
@@ -171,19 +174,28 @@ build_master()
         agent="-e CATTLE_BOOTSTRAP_REQUIRED_IMAGE=${AGENT_CONTAINER}"
     fi
 
-    docker_opts=""
+    docker_opts="-e VIRTUAL_HOST=rancher.docker -e VIRTUAL_PORT=8080"
     if [[ ! -z "$MYSQL_URL" ]]; then
-        mysql_host=$(parse_mysql_url $MYSQL_URL host)
+        mysql_host=$(parse_url $MYSQL_URL host)
         if docker inspect $mysql_host &> /dev/null; then
-            docker_opts="--link $mysql_host:$mysql_host "
+            docker_opts="$docker_opts --link $mysql_host:$mysql_host "
         fi
-        docker_opts="$docker_opts -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_mysql_url $MYSQL_URL host) \
-                -e CATTLE_DB_CATTLE_MYSQL_PORT=$(parse_mysql_url $MYSQL_URL port) \
-                -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_mysql_url $MYSQL_URL db) \
-                -e CATTLE_DB_CATTLE_USERNAME=$(parse_mysql_url $MYSQL_URL user) \
-                -e CATTLE_DB_CATTLE_PASSWORD=$(parse_mysql_url $MYSQL_URL pass) \
-                -e VIRTUAL_HOST=rancher.docker \
-                -e VIRTUAL_PORT=8080"
+        docker_opts="$docker_opts \
+            -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_url $MYSQL_URL host) \
+            -e CATTLE_DB_CATTLE_MYSQL_PORT=$(parse_url $MYSQL_URL port) \
+            -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_url $MYSQL_URL db) \
+            -e CATTLE_DB_CATTLE_USERNAME=$(parse_url $MYSQL_URL user) \
+            -e CATTLE_DB_CATTLE_PASSWORD=$(parse_url $MYSQL_URL pass)"
+    fi
+
+    if [[ ! -z "$GRAPHITE_URL" ]]; then
+        graphite_host=$(parse_url $GRAPHITE_URL host)
+        if docker inspect $graphite_host &> /dev/null; then
+            docker_opts="$docker_opts --link $graphite_host:$graphite_host "
+        fi
+        docker_opts="$docker_opts \
+            -e CATTLE_GRAPHITE_HOST=$(parse_url $GRAPHITE_URL host) \
+            -e CATTLE_GRAPHITE_PORT=$(parse_url $GRAPHITE_URL port)"
     fi
 
     docker run -d --restart=always --network $SERVER_NETWORK -p 8080:8080 --name=mac-ranch -e DEFAULT_CATTLE_API_HOST="$(get_master_ip):8080" $agent $docker_opts ${SERVER_CONTAINER}
