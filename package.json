@@ -1,6 +1,6 @@
 {
   "name": "mac-ranch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Wrapper to deploy Rancher on Docker for Mac",
   "main": "mac-ranch",
   "bin": "./mac-ranch",
