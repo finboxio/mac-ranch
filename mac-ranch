@@ -3,8 +3,8 @@
 set -e
 
 which docker >/dev/null 2>&1 || {
-    echo "docker command not found." 1>&2
-    exit 1
+  echo "docker command not found." 1>&2
+  exit 1
 }
 
 print_help()
@@ -16,7 +16,7 @@ mac-ranch Usage:
     -d - Destroy world
     -h - Print this message
     -l - List hosts
-    -b - boot2docker URL (default: the one for v1.11.2)
+    -b - boot2docker URL
     -M - Host memory in mb (default: 512)
     -n - Number of hosts (default: 3)
     -s - Server Container (default: rancher/server:latest)
@@ -27,7 +27,7 @@ EOF
 }
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BOOT2DOCKER="$DIR/boot2docker.iso" # Special image required for cross-host communication
+BOOT2DOCKER_URL=""
 AGENT_CONTAINER="rancher/agent:latest"
 SERVER_CONTAINER="rancher/server:latest"
 INSTANCE_COUNT=3
@@ -37,91 +37,110 @@ MIRROR_URL=""
 SERVER_NETWORK="default"
 
 while getopts ":a:b:cdg:hlM:m:n:prs:u:w:" opt;do
-    case $opt in
-    a)
-        AGENT_CONTAINER="${OPTARG}"
-        ;;
-    b)
-        BOOT2DOCKER="${OPTARG}"
-        ;;
-    c)
-        CREATE_NODES_FLAG="true"
-        ;;
-    d)
-        DELETE_NODES_FLAG="true"
-        ;;
-    g)
-        GRAPHITE_URL="${OPTARG}"
-        ;;
-    h)
-        print_help
-        exit 1
-        ;;
-    l)
-        LIST_NODES_FLAG="true"
-        ;;
-    M)
-        NODE_MACHINE_SIZE=${OPTARG}
-        ;;
-    m)
-        MYSQL_URL="${OPTARG}"
-        ;;
-    n)
-        INSTANCE_COUNT=${OPTARG}
-        REGISTRATION_URL="true"
-        ;;
-    s)
-        SERVER_CONTAINER="${OPTARG}"
-        ;;
-    u)
-        MIRROR_URL="${OPTARG}"
-        ;;
-    w)
-        SERVER_NETWORK="${OPTARG}"
-        ;;
-    \?)
-        echo "Invalid arguemnts" >&2
-        print_help
-        exit 1
-        ;;
-    :)
-        echo "Option -${OPTARG} requires arguement." >&2
-        print_help
-        exit 1
-        ;;
-    esac
+  case $opt in
+  a)
+    AGENT_CONTAINER="${OPTARG}"
+    ;;
+  b)
+    BOOT2DOCKER="${OPTARG}"
+    ;;
+  c)
+    CREATE_NODES_FLAG="true"
+    ;;
+  d)
+    DELETE_NODES_FLAG="true"
+    ;;
+  g)
+    GRAPHITE_URL="${OPTARG}"
+    ;;
+  h)
+    print_help
+    exit 1
+    ;;
+  l)
+    LIST_NODES_FLAG="true"
+    ;;
+  M)
+    NODE_MACHINE_SIZE=${OPTARG}
+    ;;
+  m)
+    MYSQL_URL="${OPTARG}"
+    ;;
+  n)
+    INSTANCE_COUNT=${OPTARG}
+    REGISTRATION_URL="true"
+    ;;
+  s)
+    SERVER_CONTAINER="${OPTARG}"
+    ;;
+  u)
+    MIRROR_URL="${OPTARG}"
+    ;;
+  w)
+    SERVER_NETWORK="${OPTARG}"
+    ;;
+  \?)
+    echo "Invalid arguemnts" >&2
+    print_help
+    exit 1
+    ;;
+  :)
+    echo "Option -${OPTARG} requires arguement." >&2
+    print_help
+    exit 1
+    ;;
+  esac
 done
 shift $((OPTIND-1))
 
 list_nodes()
 {
-    docker-machine ls | grep "^${NODE_PREFIX}"
+  docker-machine ls | grep "^${NODE_PREFIX}"
 }
 
 list_node_names()
 {
-    (docker-machine ls -q | grep "^${NODE_PREFIX}") || echo -n ""
+  (docker-machine ls -q | grep "^${NODE_PREFIX}") || echo -n ""
 }
 
+unregister_node()
+{
+  host=$1
+  project=$(curl -s -X GET "http://localhost:8080/v1/hosts/${host}" | jq -r .accountId)
+  echo "Deactivating host $host..."
+  curl -s -X POST "http://localhost:8080/v1/projects/${project}/hosts/${host}/?action=deactivate" >/dev/null
+  sleep 2
+  echo "Deleting host $host..."
+  curl -s -X DELETE "http://localhost:8080/v1/projects/${project}/hosts/${host}" >/dev/null
+  sleep 2
+}
+
+export -f unregister_node
 delete_nodes()
 {
-    local opts
-    local nodes
+  local opts
+  local nodes
 
-    nodes=$(list_node_names)
+  nodes=($(list_node_names))
 
-    if docker inspect mac-ranch >/dev/null 2>&1; then
-      docker rm -f mac-ranch
-    fi
+  for host in "${nodes[@]}"; do
+    echo $host
+    curl -s -X GET http://localhost:8080/v1/hosts |
+      jq -r '.data[] | select(.hostname == "'${host}'") | .id' |
+      xargs -I{} -n1 bash -c 'unregister_node "{}"'
+    docker-machine rm -y ${host}
+  done
 
-    if [[ "${nodes}" ]]; then
-      docker-machine rm -y ${nodes}
-    fi
+  if docker inspect mac-ranch >/dev/null 2>&1; then
+    echo "Destroying server"
+    sleep 5
+    docker rm -f mac-ranch
+  fi
 }
 
 get_master_ip()
 {
-    echo "10.0.2.2"
+  echo "10.0.2.2"
 }
 
 parse_url()
@@ -146,113 +165,130 @@ parse_url()
 
 create_reg_tokens() # Signature: rancher_server_ip
 {
-    project_id=$(curl -s -X GET http://localhost:8080/v1/projects|python -c'import json,sys;print(json.load(sys.stdin)["data"][0]["id"])')
-    echo $(curl -s -X POST http://localhost:8080/v1/projects/${project_id}/registrationtokens|python -c'import json,sys; print(json.load(sys.stdin)["links"]["self"])')
+  project_id=$(curl -s -X GET http://localhost:8080/v1/projects | jq -r .data[0].id)
+  echo $(curl -s -X POST http://localhost:8080/v1/projects/${project_id}/registrationtokens | jq -r .links.self)
 }
 
 get_reg_url()
 {
-    ## This is a bit hacky...
-    local reg_tokens_link
-    reg_tokens_link=$(create_reg_tokens)
-    sleep 1
-    echo $(curl -s -X GET $reg_tokens_link|python -c'import json,sys; print(json.load(sys.stdin)["registrationUrl"])')
+  ## This is a bit hacky...
+  local reg_tokens_link
+  reg_tokens_link=$(create_reg_tokens)
+  sleep 1
+  echo $(curl -s -X GET $reg_tokens_link | jq -r .registrationUrl)
 }
 
 get_run_cmd()
 {
-    reg_tokens_link=$(create_reg_tokens)
-    sleep 1
-    echo $(curl -s -X GET $reg_tokens_link|python -c'import json,sys; print(json.load(sys.stdin)["command"])')
+  reg_tokens_link=$(create_reg_tokens)
+  sleep 1
+  echo $(curl -s -X GET $reg_tokens_link | jq -r .command)
 }
 
 build_master()
 {
+  echo "building master"
+  agent=""
+  if [[ ! -z "${AGENT_CONTAINER}" ]]; then
+    agent="-e CATTLE_BOOTSTRAP_REQUIRED_IMAGE=${AGENT_CONTAINER}"
+  fi
 
-    agent=""
-    if [[ ! -z "${AGENT_CONTAINER}" ]]; then
-        agent="-e CATTLE_BOOTSTRAP_REQUIRED_IMAGE=${AGENT_CONTAINER}"
+  docker_opts="--hostname mac-ranch -e VIRTUAL_HOST=rancher.docker -e VIRTUAL_PORT=8080"
+  if [[ ! -z "$MYSQL_URL" ]]; then
+    mysql_host=$(parse_url $MYSQL_URL host)
+    if docker inspect $mysql_host &> /dev/null; then
+      docker_opts="$docker_opts --link $mysql_host:$mysql_host "
     fi
+    docker_opts="$docker_opts \
+      -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_url $MYSQL_URL host) \
+      -e CATTLE_DB_CATTLE_MYSQL_PORT=$(parse_url $MYSQL_URL port) \
+      -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_url $MYSQL_URL db) \
+      -e CATTLE_DB_CATTLE_USERNAME=$(parse_url $MYSQL_URL user) \
+      -e CATTLE_DB_CATTLE_PASSWORD=$(parse_url $MYSQL_URL pass)"
+  fi
 
-    docker_opts="-e VIRTUAL_HOST=rancher.docker -e VIRTUAL_PORT=8080"
-    if [[ ! -z "$MYSQL_URL" ]]; then
-        mysql_host=$(parse_url $MYSQL_URL host)
-        if docker inspect $mysql_host &> /dev/null; then
-            docker_opts="$docker_opts --link $mysql_host:$mysql_host "
-        fi
-        docker_opts="$docker_opts \
-            -e CATTLE_DB_CATTLE_MYSQL_HOST=$(parse_url $MYSQL_URL host) \
-            -e CATTLE_DB_CATTLE_MYSQL_PORT=$(parse_url $MYSQL_URL port) \
-            -e CATTLE_DB_CATTLE_MYSQL_NAME=$(parse_url $MYSQL_URL db) \
-            -e CATTLE_DB_CATTLE_USERNAME=$(parse_url $MYSQL_URL user) \
-            -e CATTLE_DB_CATTLE_PASSWORD=$(parse_url $MYSQL_URL pass)"
+  if [[ ! -z "$GRAPHITE_URL" ]]; then
+    graphite_host=$(parse_url $GRAPHITE_URL host)
+    if docker inspect $graphite_host &> /dev/null; then
+      docker_opts="$docker_opts --link $graphite_host:$graphite_host "
     fi
+    docker_opts="$docker_opts \
+      -e CATTLE_GRAPHITE_HOST=$(parse_url $GRAPHITE_URL host) \
+      -e CATTLE_GRAPHITE_PORT=$(parse_url $GRAPHITE_URL port)"
+  fi
 
-    if [[ ! -z "$GRAPHITE_URL" ]]; then
-        graphite_host=$(parse_url $GRAPHITE_URL host)
-        if docker inspect $graphite_host &> /dev/null; then
-            docker_opts="$docker_opts --link $graphite_host:$graphite_host "
-        fi
-        docker_opts="$docker_opts \
-            -e CATTLE_GRAPHITE_HOST=$(parse_url $GRAPHITE_URL host) \
-            -e CATTLE_GRAPHITE_PORT=$(parse_url $GRAPHITE_URL port)"
-    fi
-
-    docker run -d --restart=always --network $SERVER_NETWORK -p 8080:8080 --name=mac-ranch -e DEFAULT_CATTLE_API_HOST="$(get_master_ip):8080" $agent $docker_opts ${SERVER_CONTAINER}
+  docker run -d \
+    --restart=always \
+    --network $SERVER_NETWORK \
+    -p 8080:8080 \
+    --name=mac-ranch \
+    -e DEFAULT_CATTLE_API_HOST="$(get_master_ip):8080" \
+    $agent \
+    $docker_opts \
+    ${SERVER_CONTAINER}
 }
 
 build_compute()
 {
-    local name
+  echo "launching nodes"
+  local name
+  local b2d
+  local mirror
 
-    ip_cmd="\$(ifconfig eth1 | grep 'inet ' | awk -F'[: ]+' '{ print \$4 }')"
-    registration_cmd="docker run -e CATTLE_AGENT_IP=\"${ip_cmd}\" $(echo $(get_run_cmd)|sed 's/^sudo docker run//')"
-    echo "${registration_cmd}"
+  ip_cmd="\$(ifconfig eth1 | grep 'inet ' | awk -F'[: ]+' '{ print \$4 }')"
+  registration_cmd="docker run -e CATTLE_AGENT_IP=\"${ip_cmd}\" $(echo $(get_run_cmd)|sed 's/^sudo docker run//')"
+  echo "${registration_cmd}"
 
-    mirror=""
-    if [[ "${MIRROR_URL}" ]]; then
-      mirror="--engine-registry-mirror=${MIRROR_URL}"
-    fi
+  mirror=""
+  if [[ "${MIRROR_URL}" ]]; then
+    mirror="--engine-registry-mirror=${MIRROR_URL}"
+  fi
 
-    offset=$(list_node_names|wc -l)
-    for i in $(seq $((${offset} + 1)) $((${offset} + ${INSTANCE_COUNT}))); do
-        name="${NODE_PREFIX}${i}"
-        docker-machine create --driver=virtualbox --virtualbox-boot2docker-url="${BOOT2DOCKER}" --virtualbox-memory="${NODE_MACHINE_SIZE}" ${mirror} ${name}
-        docker-machine ssh ${name} ${registration_cmd}
-    done
+  b2d=""
+  if [[ "${BOOT2DOCKER}" ]]; then
+    b2d='--virtualbox-boot2docker-url="${BOOT2DOCKER}"'
+  fi
+
+  offset=$(list_node_names|wc -l)
+  for i in $(seq $((${offset} + 1)) $((${offset} + ${INSTANCE_COUNT}))); do
+    name="${NODE_PREFIX}${i}"
+    docker-machine create --driver=virtualbox --virtualbox-memory="${NODE_MACHINE_SIZE}" ${b2d} ${mirror} ${name}
+    docker-machine ssh ${name} ${registration_cmd}
+  done
 }
 
 build_cluster()
 {
-    if ! docker inspect mac-ranch; then
-        build_master
-        echo -n "Waiting for server to start "
-        while sleep 5; do
-            if [ "$(curl -s http://localhost:8080/ping)" = "pong" ]; then
-                echo Success
-                break
-            fi
-            echo -n "."
-        done
-    fi
-    if [ "${INSTANCE_COUNT}" -gt "0" ]; then
-        build_compute
-    fi
+  echo "building cluster"
+  if ! docker inspect mac-ranch &>/dev/null; then
+    build_master
+    echo -n "Waiting for server to start "
+    while sleep 5; do
+      if [ "$(curl -s http://localhost:8080/ping)" = "pong" ]; then
+        echo Success
+        break
+      fi
+      echo -n "."
+    done
+  fi
+  if [[ "${INSTANCE_COUNT}" -gt "0" ]]; then
+    build_compute
+  fi
 }
 
 main()
 {
-    if [[ "${LIST_NODES_FLAG}" = "true" ]]; then
-        list_nodes
-    elif [[ "${DELETE_NODES_FLAG}" = "true" ]]; then
-        delete_nodes
-    elif [[ "${CREATE_NODES_FLAG}" = "true" || "${REGISTRATION_URL}" ]]; then
-        build_cluster
-    else
-        echo "Unable to take action" 1>&2
-        print_help
-        exit 1
-    fi
+  if [[ "${LIST_NODES_FLAG}" = "true" ]]; then
+    list_nodes
+  elif [[ "${DELETE_NODES_FLAG}" = "true" ]]; then
+    delete_nodes
+  elif [[ "${CREATE_NODES_FLAG}" = "true" || "${REGISTRATION_URL}" ]]; then
+    build_cluster
+  else
+    echo "Unable to take action" 1>&2
+    print_help
+    exit 1
+  fi
 }
 
 main
