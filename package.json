@@ -1,11 +1,13 @@
 {
   "name": "mac-ranch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Wrapper to deploy Rancher on Docker for Mac",
   "main": "mac-ranch",
-  "bin" : "./mac-ranch",
+  "bin": "./mac-ranch",
   "preferGlobal": true,
-  "os": [ "darwin" ],
+  "os": [
+    "darwin"
+  ],
   "scripts": {
     "preversion": "scripts/prerelease",
     "version": "scripts/release",
