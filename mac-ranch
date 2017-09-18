@@ -2,6 +2,8 @@
 
 set -e
 
+VERSION=$(cat package.json | jq -r .version)
+
 which docker >/dev/null 2>&1 || {
   echo "docker command not found." 1>&2
   exit 1
@@ -10,7 +12,7 @@ which docker >/dev/null 2>&1 || {
 print_help()
 {
     cat 1>&2 <<EOF
-mac-ranch Usage:
+mac-ranch v${VERSION} Usage:
     mac-ranch [opts]
     -c - Create world
     -d - Destroy world
@@ -80,12 +82,12 @@ while getopts ":a:b:cdg:hlM:m:n:prs:u:w:" opt;do
     SERVER_NETWORK="${OPTARG}"
     ;;
   \?)
-    echo "Invalid arguemnts" >&2
+    echo "Invalid arguments" >&2
     print_help
     exit 1
     ;;
   :)
-    echo "Option -${OPTARG} requires arguement." >&2
+    echo "Option -${OPTARG} requires argument." >&2
     print_help
     exit 1
     ;;
