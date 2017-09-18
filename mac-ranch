@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -o xtrace
+
 set -e
 
 which docker >/dev/null 2>&1 || {

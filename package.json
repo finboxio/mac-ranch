@@ -1,0 +1,26 @@
+{
+  "name": "mac-ranch",
+  "version": "0.1.0",
+  "description": "Wrapper to deploy Rancher on Docker for Mac",
+  "main": "mac-ranch",
+  "scripts": {
+    "preversion": "scripts/prerelease",
+    "version": "scripts/release",
+    "postversion": "scripts/postrelease"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/finboxio/mac-ranch.git"
+  },
+  "keywords": [
+    "rancher",
+    "docker",
+    "virtualbox"
+  ],
+  "author": "finbox.io",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/finboxio/mac-ranch/issues"
+  },
+  "homepage": "https://github.com/finboxio/mac-ranch#readme"
+}

@@ -27,7 +27,7 @@ mac-ranch Usage:
     -d - Destroy world
     -h - Print this message
     -l - List hosts
-    -b - boot2docker URL (default: custom 1.12.0 for cross-host networking)
+    -b - boot2docker URL
     -M - Host memory in mb (default: 512)
     -n - Number of hosts (default: 3)
     -s - Server Container (default: rancher/server:latest)
@@ -45,36 +45,41 @@ mac-ranch Usage:
 ### Deploy a cluster
 
 ```
-./mac-ranch [-m mysql://rancher-mysql] -c -n <number of hosts>
+mac-ranch [-m mysql://rancher-mysql] -c -n <number of hosts>
 ```
 
 ### Deploy a specific release
 
 ```
-./mac-ranch [-m mysql://rancher-mysql] -c -n <number of hosts> -s rancher/server:vX.Y.Z
+mac-ranch [-m mysql://rancher-mysql] -c -n <number of hosts> -s rancher/server:vX.Y.Z
 ```
 
 ### Add more hosts (server must already be running)
 
 ```
-./mac-ranch -n <number of hosts>
+mac-ranch -n <number of hosts>
 ```
 
 ### List all the hosts
 
 ```
-./mac-ranch -l
+mac-ranch -l
 ```
 
 ### Destroy the cluster
 
 ```
-./mac-ranch -d
+mac-ranch -d
 ```
 
 ## Tips and Tricks
 
 This already makes it incredibly easy to run a local rancher cluster for experiementation, development, etc. But to achieve even greater levels of rancher bliss, here are a few tips I use in my own environment:
+
+#### Install the latest from github
+```
+    curl -s https://raw.githubusercontent.com/finboxio/mac-ranch/master/mac-ranch -o /usr/local/bin/mac-ranch && chmod +x /usr/local/bin/mac-ranch
+```
 
 #### [Set up a local registry mirror](https://github.com/docker/distribution/blob/master/docs/recipes/osx-setup-guide.md)
 By default, every VM you're running the agent on will have to pull all of its images from a remote repository. If you have a locally running registry mirror, you can use the `-u` option to effectively share locally cached images across hosts. It makes a big difference, assuming you're mostly using images hosted in a public repostiory. I don't think it's currently possible to set this up against a private registry, but if you know otherwise please share.
@@ -84,7 +89,7 @@ By default, every VM you're running the agent on will have to pull all of its im
 
 #### Add an alias
 ```
-alias mr='~/Dev/github/mac-ranch/mac-ranch -u http://10.0.2.2:45000 -m mysql://rancher-mysql'
+alias mr='mac-ranch -u http://10.0.2.2:45000 -m mysql://rancher-mysql'
 ```
 I've got that in my bash profile, which lets me bring up a cluster using my local mysql and registry with a simple `mr -c`, add a host with `mr -n 1`, and tear it down with `mr -d`
 
