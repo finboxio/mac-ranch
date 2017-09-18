@@ -76,9 +76,9 @@ mac-ranch -d
 
 This already makes it incredibly easy to run a local rancher cluster for experiementation, development, etc. But to achieve even greater levels of rancher bliss, here are a few tips I use in my own environment:
 
-#### Install the latest from github
+#### Install the latest from npm
 ```
-    curl -s https://raw.githubusercontent.com/finboxio/mac-ranch/master/mac-ranch -o /usr/local/bin/mac-ranch && chmod +x /usr/local/bin/mac-ranch
+    npm install -g mac-ranch
 ```
 
 #### [Set up a local registry mirror](https://github.com/docker/distribution/blob/master/docs/recipes/osx-setup-guide.md)
