@@ -81,7 +81,7 @@ This already makes it incredibly easy to run a local rancher cluster for experie
     npm install -g mac-ranch
 ```
 
-#### [Set up a local registry mirror](https://github.com/docker/distribution/blob/master/docs/recipes/osx-setup-guide.md)
+#### [Set up a local registry mirror](https://github.com/docker/docker.github.io/blob/master/registry/recipes/osx-setup-guide.md)
 By default, every VM you're running the agent on will have to pull all of its images from a remote repository. If you have a locally running registry mirror, you can use the `-u` option to effectively share locally cached images across hosts. It makes a big difference, assuming you're mostly using images hosted in a public repostiory. I don't think it's currently possible to set this up against a private registry, but if you know otherwise please share.
 
 > Note:
